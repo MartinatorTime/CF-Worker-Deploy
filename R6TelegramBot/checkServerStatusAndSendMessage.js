@@ -3,31 +3,30 @@ export async function checkServerStatusAndSendMessage(onlyNotifyIfDownOrMaintena
   const serverStatusResponse = await fetch(serverStatusUrl);
   const serverStatusData = await serverStatusResponse.json();
 
-  const isServerDown = serverStatusData.some(instance => instance.Status === 'Down');
-  const isServerInMaintenance = serverStatusData.some(instance => instance.Status === 'Maintenance');
-  const isServerDegradedAndInMaintenance = serverStatusData.some(instance => instance.Status === 'Degraded' && instance.Maintenance);
+  const isServerInMaintenance = serverStatusData.some(instance => instance.Maintenance);
+  const isServerDegraded = serverStatusData.some(instance => instance.Status === 'Degraded');
 
   // Get the previous server status from the database
   const previousServerStatus = await DATABASE.get('serverStatus');
 
-  if (isServerInMaintenance || isServerDegradedAndInMaintenance) {
+  if (isServerInMaintenance) {
     if (previousServerStatus !== 'maintenance') {
       // Save the new server status to the database
       await DATABASE.put('serverStatus', 'maintenance');
 
       // Send a message to all allowed chats
       for (const allowedChatId of CHAT_TO_SEND) {
-        await notifyServerStatus(allowedChatId, isServerDown, isServerInMaintenance, isServerDegradedAndInMaintenance);
+        await notifyServerStatus(allowedChatId, isServerDegraded, isServerInMaintenance);
       }
     }
-  } else if (isServerDown) {
-    if (previousServerStatus !== 'down') {
+  } else if (isServerDegraded) {
+    if (previousServerStatus !== 'degraded') {
       // Save the new server status to the database
-      await DATABASE.put('serverStatus', 'down');
+      await DATABASE.put('serverStatus', 'degraded');
 
       // Send a message to all allowed chats
       for (const allowedChatId of CHAT_TO_SEND) {
-        await notifyServerStatus(allowedChatId, isServerDown, isServerInMaintenance, isServerDegradedAndInMaintenance);
+        await notifyServerStatus(allowedChatId, isServerDegraded, isServerInMaintenance);
       }
     }
   } else if (previousServerStatus !== 'up') {
@@ -36,27 +35,25 @@ export async function checkServerStatusAndSendMessage(onlyNotifyIfDownOrMaintena
 
     // Send a message to all allowed chats
     for (const allowedChatId of CHAT_TO_SEND) {
-      await notifyServerStatus(allowedChatId, isServerDown, isServerInMaintenance, isServerDegradedAndInMaintenance);
+      await notifyServerStatus(allowedChatId, isServerDegraded, isServerInMaintenance);
     }
   }
 
-  if (!onlyNotifyIfDownOrMaintenance || isServerDown || isServerInMaintenance || isServerDegradedAndInMaintenance) {
-    return sendMessageToChat(getStatusMessage(isServerDown, isServerInMaintenance, isServerDegradedAndInMaintenance), chatId, replyToMessageId);
+  if (!onlyNotifyIfDownOrMaintenance || isServerDegraded || isServerInMaintenance) {
+    return sendMessageToChat(getStatusMessage(isServerDegraded, isServerInMaintenance), chatId, replyToMessageId);
   }
 }
 
-export async function notifyServerStatus(chatId, isServerDown, isServerInMaintenance, isServerDegradedAndInMaintenance) {
-  const messageText = getStatusMessage(isServerDown, isServerInMaintenance, isServerDegradedAndInMaintenance);
+export async function notifyServerStatus(chatId, isServerDegraded, isServerInMaintenance) {
+  const messageText = getStatusMessage(isServerDegraded, isServerInMaintenance);
   await sendMessageToChat(messageText, chatId);
 }
 
-export function getStatusMessage(isServerDown, isServerInMaintenance, isServerDegradedAndInMaintenance) {
-  if (isServerDegradedAndInMaintenance) {
+export function getStatusMessage(isServerDegraded, isServerInMaintenance) {
+  if (isServerInMaintenance) {
     return '🔧 R6 PSN Сервер находится на техническом обслуживании.';
-  } else if (isServerDown) {
-    return '⚠️ R6 PSN Сервер в данный момент не работает.';
-  } else if (isServerInMaintenance) {
-    return '🔧 R6 PSN Сервер находится на техническом обслуживании.';
+  } else if (isServerDegraded) {
+    return '⚠️ R6 PSN Сервер испытывает проблемы и работает в ограниченном режиме.';
   } else {
     return '✅ R6 PSN Сервер находится в сети и работает без сбоев.';
   }
