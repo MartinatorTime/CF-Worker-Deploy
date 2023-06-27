@@ -9,15 +9,27 @@ export async function checkServerStatusAndSendMessage(onlyNotifyIfDownOrMaintena
   // Get the previous server status from the database
   const previousServerStatus = await DATABASE.get('serverStatus');
 
-  if (isServerInMaintenance && previousServerStatus !== 'maintenance') {
-    // Save the new server status to the database
-    await DATABASE.put('serverStatus', 'maintenance');
+  if (isServerInMaintenance) {
+    if (previousServerStatus !== 'maintenance') {
+      // Save the new server status to the database
+      await DATABASE.put('serverStatus', 'maintenance');
 
-    // Send a message to all allowed chats
-    for (const allowedChatId of CHAT_TO_SEND) {
-      await notifyServerStatus(allowedChatId, isServerDown, isServerInMaintenance);
+      // Send a message to all allowed chats
+      for (const allowedChatId of CHAT_TO_SEND) {
+        await notifyServerStatus(allowedChatId, isServerDown, isServerInMaintenance);
+      }
     }
-  } else if (!isServerInMaintenance && previousServerStatus === 'maintenance') {
+  } else if (isServerDown) {
+    if (previousServerStatus !== 'down') {
+      // Save the new server status to the database
+      await DATABASE.put('serverStatus', 'down');
+
+      // Send a message to all allowed chats
+      for (const allowedChatId of CHAT_TO_SEND) {
+        await notifyServerStatus(allowedChatId, isServerDown, isServerInMaintenance);
+      }
+    }
+  } else if (previousServerStatus !== 'up') {
     // Save the new server status to the database
     await DATABASE.put('serverStatus', 'up');
 
@@ -59,7 +71,7 @@ export async function sendMessageToChat(text, chatId, replyToMessageId) {
     }),
   });
 
-  if (response.ok) {
+ if (response.ok) {
     return new Response('Message sent successfully');
   }
 
