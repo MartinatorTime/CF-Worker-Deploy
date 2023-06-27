@@ -23,10 +23,13 @@ export async function handleTelegramUpdate(request) {
   const command = messageText[0];
 
   // Check for bug - if command does not start with /status and is not in the list of allowed commands, return without doing anything
-  if (!['/status', '/s', '/f', '/l'].includes(command)) {
+  if (![ '/s', '/f', '/l'].includes(command)) {
     return new Response('OK', { status: 200 });
   }
 
+  if (!command.startsWith('/status')) {
+    return new Response('OK', { status: 200 });
+  }
   const chatId = message.chat.id;
   let usernames = messageText.slice(1).map(username => username.toUpperCase());
 
@@ -44,7 +47,7 @@ export async function handleTelegramUpdate(request) {
   }
 
   // Handle /status command separately
-  if (command === '/status') {
+  if (!command.startsWith('/status')) {
     return checkServerStatusAndSendMessage(false, chatId, message.message_id, requestedBy);
   }
 
