@@ -6,37 +6,18 @@ export async function checkServerStatusAndSendMessage(onlyNotifyIfDownOrMaintena
   const isServerInMaintenance = serverStatusData.some(instance => instance.Maintenance);
   const isServerDegraded = serverStatusData.some(instance => instance.Status === 'Degraded');
 
-  // Get the previous server status from the database
-  const previousServerStatus = await DATABASE.get('serverStatus');
+  // Get the previous server status from the KV store
+  const previousServerStatus = await KV_STORE.get('serverStatus');
 
-  if (isServerInMaintenance) {
-    if (previousServerStatus !== 'maintenance') {
-      // Save the new server status to the database
-      await DATABASE.put('serverStatus', 'maintenance');
-
-      // Send a message to all allowed chats
-      for (const allowedChatId of CHAT_TO_SEND) {
-        await notifyServerStatus(allowedChatId, isServerDegraded, isServerInMaintenance);
-      }
-    }
-  } else if (isServerDegraded) {
-    if (previousServerStatus !== 'degraded') {
-      // Save the new server status to the database
-      await DATABASE.put('serverStatus', 'degraded');
-
-      // Send a message to all allowed chats
-      for (const allowedChatId of CHAT_TO_SEND) {
-        await notifyServerStatus(allowedChatId, isServerDegraded, isServerInMaintenance);
-      }
-    }
-  } else if (previousServerStatus !== 'up') {
-    // Save the new server status to the database
-    await DATABASE.put('serverStatus', 'up');
-
-    // Send a message to all allowed chats
-    for (const allowedChatId of CHAT_TO_SEND) {
-      await notifyServerStatus(allowedChatId, isServerDegraded, isServerInMaintenance);
-    }
+  if (isServerInMaintenance && previousServerStatus !== 'maintenance') {
+    await KV_STORE.put('serverStatus', 'maintenance');
+    await sendServerStatusNotification(chatId, replyToMessageId, isServerDegraded, isServerInMaintenance);
+  } else if (isServerDegraded && previousServerStatus !== 'degraded') {
+    await KV_STORE.put('serverStatus', 'degraded');
+    await sendServerStatusNotification(chatId, replyToMessageId, isServerDegraded, isServerInMaintenance);
+  } else if (!isServerInMaintenance && !isServerDegraded && previousServerStatus !== 'up') {
+    await KV_STORE.put('serverStatus', 'up');
+    await sendServerStatusNotification(chatId, replyToMessageId, isServerDegraded, isServerInMaintenance);
   }
 
   if (!onlyNotifyIfDownOrMaintenance || isServerDegraded || isServerInMaintenance) {
@@ -44,9 +25,9 @@ export async function checkServerStatusAndSendMessage(onlyNotifyIfDownOrMaintena
   }
 }
 
-export async function notifyServerStatus(chatId, isServerDegraded, isServerInMaintenance) {
+export async function sendServerStatusNotification(chatId, replyToMessageId, isServerDegraded, isServerInMaintenance) {
   const messageText = getStatusMessage(isServerDegraded, isServerInMaintenance);
-  await sendMessageToChat(messageText, chatId);
+  await sendMessageToChat(messageText, chatId, replyToMessageId);
 }
 
 export function getStatusMessage(isServerDegraded, isServerInMaintenance) {
