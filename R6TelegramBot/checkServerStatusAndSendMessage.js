@@ -15,8 +15,8 @@ export async function checkServerStatusAndSendMessage(onlyNotifyIfDownOrMaintena
   } else if (isServerDegraded && previousServerStatus !== 'degraded') {
     await DATABASE.put('serverStatus', 'degraded');
     await sendServerStatusNotification(chatId, replyToMessageId, isServerDegraded, isServerInMaintenance);
-  } else if (!isServerInMaintenance && !isServerDegraded && previousServerStatus !== 'up') {
-    await DATABASE.put('serverStatus', 'up');
+  } else if (!isServerInMaintenance && !isServerDegraded && previousServerStatus !== 'Online') {
+    await DATABASE.put('serverStatus', 'Online');
     await sendServerStatusNotification(chatId, replyToMessageId, isServerDegraded, isServerInMaintenance);
   }
 
