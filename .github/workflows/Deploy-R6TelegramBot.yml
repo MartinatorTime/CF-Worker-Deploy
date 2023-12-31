@@ -1,0 +1,30 @@
+name: Deploy R6TelegramBot Worker
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'R6TelegramBot/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@master
+      - name: Install Wrangler
+        run: npm install -g wrangler
+      - name: Build and deploy to Cloudflare Workers
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CLOUDFLARE_API_KEY: ${{ secrets.CF_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CF_API_EMAIL }}
+        run: |
+          touch wrangler.toml
+          cat << 'EOF' > wrangler.toml
+          ${{secrets.WRANGLER_TOML_R6BOT}} 
+          EOF
+          wrangler deploy > /dev/null 2>&1
+        working-directory: ./R6TelegramBot
